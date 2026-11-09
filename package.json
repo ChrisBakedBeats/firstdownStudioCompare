@@ -1,0 +1,7 @@
+{
+  "name": "firstdown-compare",
+  "private": true,
+  "type": "module",
+  "scripts": { "fetch": "node scripts/fetch-data.mjs" },
+  "dependencies": { "cheerio": "^1.0.0" }
+}

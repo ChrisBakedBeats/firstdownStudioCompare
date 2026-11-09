@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Player Compare</title>
+<style>
+:root{--bg:#faf8f4;--fg:#1a1815;--mut:#6b655c;--card:#fff;--bd:#e3ddd2;--ac:#b4532a;--win:#dff3e2;--wt:#17602a;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media(prefers-color-scheme:dark){:root:not([data-theme=light]){--bg:#1a1815;--fg:#f3efe8;--mut:#a39c90;--card:#252219;--bd:#3a362c;--ac:#e8845a;--win:#1f3d27;--wt:#8fe0a4}}
+*{box-sizing:border-box}html{color-scheme:light dark}
+body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.45 system-ui,-apple-system,Segoe UI,sans-serif}
+main{max-width:900px;margin:0 auto;padding:16px}
+h1{font-size:22px;margin:0 0 2px}.sub{color:var(--mut);font-size:13px;margin:0 0 14px}
+.tabs,.chips{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0}
+button,input{font:inherit;color:inherit}
+.tab{border:1px solid var(--bd);background:var(--card);border-radius:99px;padding:4px 12px;cursor:pointer}
+.tab.on{background:var(--ac);color:#fff;border-color:var(--ac)}
+input{width:100%;padding:9px 12px;border:1px solid var(--bd);border-radius:8px;background:var(--card)}
+.list{border:1px solid var(--bd);border-radius:8px;background:var(--card);max-height:230px;overflow:auto;margin-top:8px}
+.row{display:flex;justify-content:space-between;gap:8px;padding:8px 12px;border-bottom:1px solid var(--bd);cursor:pointer}
+.row:hover{background:var(--win)}.row small{color:var(--mut)}
+.chip{background:var(--ac);color:#fff;border-radius:99px;padding:3px 6px 3px 12px;display:flex;gap:6px;align-items:center}
+.chip b{cursor:pointer;padding:0 6px}
+.wrap{overflow-x:auto;margin-top:14px}
+table{border-collapse:collapse;width:100%;min-width:420px;background:var(--card);border:1px solid var(--bd)}
+th,td{padding:8px 10px;border-bottom:1px solid var(--bd);text-align:right;white-space:nowrap}
+th:first-child,td:first-child{text-align:left;color:var(--mut)}
+td.w{background:var(--win);color:var(--wt);font-weight:600}
+.bar{height:8px;border-radius:4px;background:var(--ac);margin-top:4px}
+.note{color:var(--mut);font-size:12px;margin-top:12px}.v{margin-top:12px;font-weight:600}
+</style></head><body><main>
+<h1>Player Compare</h1>
+<p class="sub">Vegas-prop projections from First Down Studio, refreshed nightly. Pick 2 or more players.</p>
+<div class="tabs" id="tabs"></div>
+<input id="q" placeholder="Search players…" autocomplete="off">
+<div class="list" id="list"></div>
+<div class="chips" id="chips"></div>
+<div class="wrap" id="out"></div>
+<p class="note" id="note">Loading data…</p>
+</main>
+<script>
+const KEYS={QB:["py","ptd","int","ry","rtd"],RB:["ry","ra","rec","recy","td"],WR:["rec","recy","td"],TE:["rec","recy","td"],K:["tp"]};
+const L={pts:"Projected pts",rk:"Position rank",fx:"FLEX rank",py:"Pass yds",ptd:"Pass TDs",int:"INTs",ry:"Rush yds",rtd:"Rush TDs",ra:"Rush att",rec:"Receptions",recy:"Rec yds",td:"TDs",tp:"Team proj. pts"};
+const ORDER=Object.keys(L),LOW={int:1,rk:1,fx:1};
+const $=id=>document.getElementById(id);
+let all=[],tab="ALL",sel=[];
+function tabs(){$("tabs").innerHTML=["ALL","FLEX",...Object.keys(KEYS)].map(t=>`<button class="tab ${t==tab?"on":""}" data-t="${t}">${t}</button>`).join("")}
+function list(){const q=$("q").value.toLowerCase();
+let r=all.filter(p=>(tab=="ALL"||p.pos==tab||(tab=="FLEX"&&p.fx))&&p.name.toLowerCase().includes(q)&&!sel.includes(p.id));
+if(tab=="FLEX")r.sort((a,b)=>a.fx-b.fx);
+$("list").innerHTML=r.map(p=>`<div class="row" data-id="${p.id}"><span>${p.name} <small>${p.pos}${p.rk}${tab=="FLEX"?" · F"+p.fx:""}</small></span><small>${p.game} · ${p.pts}</small></div>`).join("")||`<div class="row">No matches</div>`}
+function out(){const ps=sel.map(id=>all.find(p=>p.id==id));
+$("chips").innerHTML=ps.map(p=>`<span class="chip">${p.name}<b data-x="${p.id}">×</b></span>`).join("");
+if(ps.length<2){$("out").innerHTML=`<p class="note">Select at least two players to compare.</p>`;return}
+const get=(p,k)=>p[k];
+const rows=ORDER.filter(k=>ps.some(p=>get(p,k)!=null));
+const max=Math.max(...ps.map(p=>p.pts));
+let h=`<table><tr><th></th>${ps.map(p=>`<th>${p.name}<br><small>${p.pos} · ${p.game}</small></th>`).join("")}</tr>`;
+for(const k of rows){const v=ps.map(p=>get(p,k)),n=v.filter(x=>x!=null);
+const best=n.length>1?(LOW[k]?Math.min(...n):Math.max(...n)):null;
+h+=`<tr><td>${L[k]}</td>${v.map(x=>`<td class="${x!=null&&x===best?"w":""}">${x==null?"—":x}${k=="pts"?`<div class="bar" style="width:${x/max*100}%"></div>`:""}</td>`).join("")}</tr>`}
+h+="</table>";
+const s=[...ps].sort((a,b)=>b.pts-a.pts),gap=(s[0].pts-s[1].pts).toFixed(1);
+h+=`<div class="v">Projection edge: ${s[0].name} (${s[0].pts} pts${+gap?`, +${gap} over ${s[1].name}`:", tied with "+s[1].name}).${new Set(ps.map(p=>p.pos)).size>1?" Different positions: compare points cautiously.":""}</div>`;
+$("out").innerHTML=h}
+document.addEventListener("click",e=>{const t=e.target.closest("[data-t],[data-id],[data-x]");if(!t)return;
+if(t.dataset.t){tab=t.dataset.t;tabs();list()}
+else if(t.dataset.id){sel.push(t.dataset.id);list();out()}
+else{sel=sel.filter(i=>i!=t.dataset.x);list();out()}});
+$("q").addEventListener("input",list);
+fetch("data.json",{cache:"no-store"}).then(r=>{if(!r.ok)throw 0;return r.json()}).then(d=>{
+for(const pos in d.positions)d.positions[pos].forEach(o=>all.push({...o,id:pos+o.rk,pos}));
+d.flex.forEach((t,i)=>{const m=t.match(/^([A-Z]+)(\d+)$/);const p=m&&all.find(x=>x.pos==m[1]&&x.rk==+m[2]);if(p)p.fx=i+1});
+const wk=[...new Set(Object.values(d.meta).map(m=>m.week))].join(", "),up=Object.values(d.meta)[0].updated;
+$("note").textContent=`Week ${wk}${up?" (site updated "+up+")":""}. Data refreshed ${new Date(d.generated).toLocaleString()}. Source: firstdown.studio/rankings.`;
+tabs();list();out()}).catch(()=>{tabs();$("note").textContent="Could not load data.json.";$("out").innerHTML=""});
+</script></body></html>
